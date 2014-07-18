@@ -1,0 +1,44 @@
+<?php
+/*  app/Config/database.php 
+ */
+class DATABASE_CONFIG {
+
+    public  $ldap = array(
+        'type'      => 'OpenLDAP',
+        'datasource'=> 'Yaldap2.LdapSource',           //  Plugin.DataSource
+        'host'      => 'ldap://localhost',
+        'basedn'    => 'dc=example,dc=com',
+        'login'     => 'cn=Manager,dc=example,dc=com', //  Manager ID
+        'password'  => 'password',                     //  Manager Password
+        'userdn'    => 'ou=Users,dc=example,dc=com',
+        'groupdn'   => 'ou=Groups,dc=example,dc=com',
+        'tls'       => false,
+    );
+
+    public  $ad = array(
+        'type'      => 'ActiveDirectory',
+        'datasource'=> 'Yaldap2.LdapSource',
+        'host'      => 'ldap://localhost',
+        'basedn'    => 'dc=example,dc=local',
+        'login'     => 'Administrator@example.local',
+        'password'  => 'password',
+        'userdn'    => 'ou=Users,dc=example,dc=local',
+        'groupdn'   => 'ou=Groups,dc=example,dc=local',
+        'tls'       => true,
+        'database'  => null,
+    );
+
+    //  If TLS connection fails, Try:
+    //  echo "TLS_REQCERT never" >> /etc/openldap/ldap.conf
+    
+    public $default = array(
+        'datasource' => 'Database/Postgres',
+        'persistent' => false,
+        'host' => 'localhost',
+        'login' => 'dbuser',
+        'password' => 'password',
+        'database' => 'dbname',
+        'prefix' => '',
+    );
+
+}   //  class DATABASE_CONFIG
