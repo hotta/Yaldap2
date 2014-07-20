@@ -2,8 +2,11 @@
 //  sample/app/Console/Command/SampleAppShell.php
 Class   SampleAppShell  extends AppShell    {
 
-    public  $uses = array('Yaldap2.Yaldap2_User', 'Aduser');
+    public  $uses = array('Yaldap2.Yaldap2_User',
+                          'Yaldap2.Yaldap2_Aduser');
     const   USERID = 'user1';
+
+    public  function    startup(){} //  remove startup message
 
     public  function    main() {
         $this->out( "cake SampleApp [arg]\n"
@@ -79,13 +82,13 @@ Class   SampleAppShell  extends AppShell    {
 
     public  function    ad_read() {
         $this->out('$this->ad->read()');
-        $this->out(print_r($this->Aduser->read(
+        $this->out(print_r($this->Yaldap2_Aduser->read(
             array('sn', 'GivenName'), self::USERID), true));
     }
 
     public  function    ad_findby() {
         $this->out('$this->ad->findBy()');
-        $this->out(print_r($this->Aduser->findBysAMAccountName(self::USERID),true));
+        $this->out(print_r($this->Yaldap2_Aduser->findBysAMAccountName(self::USERID),true));
     }
 
     public  function    ad_findfirst() {
@@ -94,7 +97,7 @@ Class   SampleAppShell  extends AppShell    {
             'conditions'    =>  array('sAMAccountName' =>  self::USERID),
             'fields'        =>  array(
                 'sn', 'displayName', 'givenName', 'homeDirectory'));
-        $this->out(print_r($this->Aduser->find('first', $query), true));
+        $this->out(print_r($this->Yaldap2_Aduser->find('first', $query), true));
     }
 
     public  function    ad_findall() {
@@ -107,7 +110,7 @@ Class   SampleAppShell  extends AppShell    {
         //  'conditions'=>  array('physicalDeliveryOfficeName' => 'siebold'),
         //  'fields'    =>  array('sAMAccountName', 'sn', 'GivenName'),
             'limit'     =>  array(3));
-        $this->out(print_r($this->Aduser->find('all', $query), true));
+        $this->out(print_r($this->Yaldap2_Aduser->find('all', $query), true));
     }
 
     public  function    ad_query() {
@@ -116,7 +119,7 @@ Class   SampleAppShell  extends AppShell    {
             'basedn'        =>  'ou=04Computers,dc=sun,dc=local',
             'conditions'    =>  array('cn' =>  '41CW3W1'),
             'callbacks'     =>  false);
-        $this->out(print_r($this->Aduser->query('search', $query), true));
+        $this->out(print_r($this->Yaldap2_Aduser->query('search', $query), true));
     }
 
     public  function    ad_auth() {
@@ -127,8 +130,8 @@ Class   SampleAppShell  extends AppShell    {
         }
         $uid = $this->args[0];
         $password = $this->args[1];
-        $this->out('$this->Aduser->auth()');
-        $user = $this->Aduser->auth($uid, $password);
+        $this->out('$this->Yaldap2_Aduser->auth()');
+        $user = $this->Yaldap2_Aduser->auth($uid, $password);
         if ($user)  {
             $this->out("Successfully authenticated.");
         } else  {
