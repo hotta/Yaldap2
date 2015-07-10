@@ -27,7 +27,13 @@ class LdapAuthenticate extends BaseAuthenticate {
         $this->model = ClassRegistry::init($model);
         parent::__construct($collection, $settings);
 	}   //  LdapAuthenticate :: __construct()
-
+/**
+ * Authenticate a user based on the request information.
+ *
+ * @param CakeRequest $request Request to get authentication information from.
+ * @param CakeResponse $response A response object that can have headers added.
+ * @return mixed Either false on failure, or an array of user data on success.
+ */
     public function authenticate(CakeRequest $request, CakeResponse $response) {
 
         list($plugin, $model) = pluginSplit($this->userModel);
@@ -44,6 +50,9 @@ class LdapAuthenticate extends BaseAuthenticate {
         }
 	$dn = $this->_getDn($this->model->primaryKey, 
             $request->data[$model][$fields['username']]);
+        if (! $dn)  {
+            return  false;
+        }
         return $this->_findLdapUser(
             $dn, $request->data[$model][$fields['password']]
         );
@@ -68,31 +77,31 @@ class LdapAuthenticate extends BaseAuthenticate {
     }   //  LdapAuthenticate :: getUser()
 
     function _findLdapUser($dn, $password)  {
-        $authResult =  $this->model->auth([
+        if (! $authResult =  $this->model->auth([
             'dn'        =>  $dn,
             'password'  =>  $password
-        ]);
-	if ($authResult)   {
-            $user =  $this->model->find('first', [
-                'scope'     =>  'base',
-                'targetDn'  =>  $dn
-            ]);
-            $user[$this->model->alias]['bindDN'] = $dn;
-            $user[$this->model->alias]['bindPasswd'] = $password;
-            $groups = $this->getGroups($user[$this->model->alias]);
-                return $user[$this->model->alias];
-            } else {
-                return false;
+        ])) {
+            return  false;
         }
+        $user =  $this->model->find('first', [
+            'scope'     =>  'base',
+            'targetDn'  =>  $dn
+        ]);
+        $user[$this->model->alias]['bindDN'] = $dn;
+        $user[$this->model->alias]['bindPasswd'] = $password;
+        $groups = $this->getGroups($user[$this->model->alias]);
+        return $user[$this->model->alias];
     }   //  LdapAuthenticate :: _findLdapUser()
 
     function _getDn( $attr, $query) {
-        $userObj = $this->model->find('first', [
+        if (! $userObj = $this->model->find('first', [
             'conditions'    =>  [
                 $attr   =>  $query
             ],
             'scope'         =>  'sub'
-        ]);
+        ])) {
+            return  null;   //  No such account
+        }
         return ($userObj[$this->model->alias]['dn']);
     }   //  LdapAuthenticate :: _getDn()
 

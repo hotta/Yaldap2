@@ -283,8 +283,8 @@ const   LDAP_ENTRY_LIMIT = 1000;    //  To avoid exhausting memory
  * @param string password for the bindDN
  * @param boolean 
 */
-    public function auth( $dn, $passwd ){
-        $this->connect($dn, $passwd);
+    public function auth( $bindDn, $passwd ){
+        $this->connect($bindDn, $passwd);
         if ($this->connected){
             return true;
         } else {
@@ -365,33 +365,13 @@ const   LDAP_ENTRY_LIMIT = 1000;    //  To avoid exhausting memory
     public function connect($bindDN = null, $passwd = null) {
         $config = am($this->_baseConfig, $this->config);
         $this->connected = false;
-        $hasFailover = false;
-        if(isset($config['host']) && is_array($config['host']) ) {
-            $config['host'] = $config['host'][$this->_multiMasterUse];
-            if(count($this->config['host']) > (1 + $this->_multiMasterUse) ) {
-                $hasFailOver = true;
-            }
-        }
         $bindDN =  (empty($bindDN)) ? $config['login'] : $bindDN;
         $bindPasswd = (empty($passwd)) ? $config['password'] : $passwd;
         if (!function_exists('ldap_connect')) {
-            $this->log("LDAP not configured on this server.",'error');
-            die("LDAP not configured on this server. The PHP-LDAP extension is probably missing!");
+            throw new ConfigureException(
+"LDAP not configured on this server. The PHP-LDAP extension is probably missing!");
         }
         $this->_connection = @ldap_connect($config['host']);
-        if (!$this->_connection) {
-            // Try Next Server Listed
-            if ($hasFailover) {
-                $this->log('Trying Next LDAP Server in list:'
-                . $this->config['host'][$this->_multiMasterUse], 'error');
-                $this->_multiMasterUse++;
-                $this->connect($bindDN, $passwd);
-                if ($this->connected) {
-                    return $this->connected;
-                }
-            }
-        }
-
         // Set our protocol version usually version 3
         ldap_set_option($this->_connection, LDAP_OPT_PROTOCOL_VERSION, 
             $config['version']);
@@ -411,18 +391,8 @@ const   LDAP_ENTRY_LIMIT = 1000;    //  To avoid exhausting memory
         //  So if you are using failover then you have to test here also.
         $bind_result = @ldap_bind($this->_connection, $bindDN, $bindPasswd);
         if (!$bind_result) {
-            if(ldap_errno($this->_connection) == 49){
-                $this->log("Auth failed for '$bindDN'!",'error');
-            }else{
-                $this->log('Trying Next LDAP Server in list:'
-                    . $this->config['host'][$this->_multiMasterUse], 'error');
-                $this->_multiMasterUse++;
-                $this->connect($bindDN, $passwd);
-                if($this->connected){
-                    return $this->connected;
-                }
-            }
-
+            $this->log("Auth failed for '$bindDN'!",'error');
+            $this->connected = false;
         } else {
             $this->connected = true;
         }
@@ -867,6 +837,19 @@ const   LDAP_ENTRY_LIMIT = 1000;    //  To avoid exhausting memory
  *  In case calling directly from Controller/Command,
  *      this should be called as query('search', $query)
  *      and we can't access to the model object.
+ *  In case called via authentication, $args looks like:
+ *      $args = [
+ *          [0] =>  'auth',
+ *          [1]	=>  [
+ *              [0] =>	[
+ *                  'dn'        =>  'uid=XXX,,,',
+ *                  'password'	=>  'password string'
+ *              ]
+ *          ],
+ *          [2]	=>  [
+ *              (Model object)
+ *          ]
+ *      ];
  * @return resource Result resource identifier.
 */
     public function query() {
@@ -891,12 +874,19 @@ const   LDAP_ENTRY_LIMIT = 1000;    //  To avoid exhausting memory
         }
         switch ($method) {
         case 'auth':
-            //  $query = [ 0 => [ 
-            //      'dn' => 'uid=hotta,ou=Users...' ,
-            //      'password' => raw_password
-            //  ]];
-            $dn = $query[0]['dn'];
-            $password = $query[0]['password'];
+            if (isset($query[0]['dn'])) {
+                $dn = $query[0]['dn'];
+                $password = $query[0]['password'];
+            } else  {
+                $dn = $query[0];
+                $password = $query[1];
+            }
+            if (!strstr($dn, "="))  {
+                $dn = sprintf("%s=%s,%s",
+                    $model->primaryKey,
+                    $dn,
+                    $this->config['userdn']);
+            }
             return $this->auth($dn, $password);
         case 'findSchema':
             $query = $this->__getLDAPschema();
@@ -1119,9 +1109,9 @@ const   LDAP_ENTRY_LIMIT = 1000;    //  To avoid exhausting memory
     }   //  LdapSource :: setSchemaPath()
 
 /**
- * Outputs the contents of the queries log. If in a non-CLI environment 
+ * Outputs contents of the queries log. If in a non-CLI environment 
  * the sql_log element will be rendered and output. If in a CLI environment,
- * a plain text log is generated.
+ * a plain text log will be generated.
  *
  * @param boolean $sorted Get the queries sorted by time taken, 
  *      defaults to false.
@@ -1171,31 +1161,6 @@ const   LDAP_ENTRY_LIMIT = 1000;    //  To avoid exhausting memory
             print ('</p>');
         }
     }   //  LdapSource :: showQuery()
-
-/**
- * decode avtive directory sid
- *
- * @param string $sid
- * @return string
- */
-    public function sid_decode($osid) {
-        $sid = false;
-        $u = unpack("H2rev/H2b/nc/Nd/V*e", $osid);
-        if ($u) {
-            $n232 = pow(2,2);
-            unset($u["b"]); // unused
-            $u["c"] = $n232 * $u["c"] + $u["d"];
-            unset($u["d"]);
-            $sid="S";
-            foreach ($u as $v) {
-                if ($v < 0) {
-                    $v = $n232 + $v;
-                }
-                $sid .= "-" . $v;
-            }
-        }
-        return $sid;
-    }   //  LdapSource :: sid_decode()
 
 /**
  * The "U" in CRUD
@@ -1499,8 +1464,7 @@ const   LDAP_ENTRY_LIMIT = 1000;    //  To avoid exhausting memory
     }   //  LdapSource :: _findBy()
 
 /*
- *
- *
+ *  Remove numeric keys from the search results
  */
     function _ldapFormat(& $model, $data) {
         $res = array ();
@@ -1509,7 +1473,7 @@ const   LDAP_ENTRY_LIMIT = 1000;    //  To avoid exhausting memory
             if ($key === 'count')   {
                 continue;
             }
-        
+
             foreach ($row as $key1 => $param) {
                 if ($key1 === 'dn') {
                     $res[$key][$model->name][$key1] = $param;
@@ -1519,9 +1483,6 @@ const   LDAP_ENTRY_LIMIT = 1000;    //  To avoid exhausting memory
                     continue;
                 }
                 if ($row[$param]['count'] === 1)    {
-                    if (in_array($param, ['objectguid', 'objectsid']))   {
-                        $row[$param][0] = $this->sid_decode($row[$param][0]);
-                    }
                     $res[$key][$model->name][$param] = $row[$param][0];
                 } else {
                     foreach ($row[$param] as $key2 => $item) {

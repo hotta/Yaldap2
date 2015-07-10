@@ -6,6 +6,7 @@ Yet another LDAP datasource for CakePHP 2.x
 Requirements
 ------------
 
+* php >= 5.4
 * php-ldap installed
 
 Settings

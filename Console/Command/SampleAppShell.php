@@ -1,5 +1,5 @@
 <?php
-//  sample/app/Console/Command/SampleAppShell.php
+//  app/Plugin/Yaldap2/Console/Command/SampleAppShell.php
 Class   SampleAppShell  extends AppShell    {
 
     public  $uses = array('Yaldap2.Yaldap2_User',
@@ -103,7 +103,7 @@ Class   SampleAppShell  extends AppShell    {
     public  function    ad_findall() {
         $this->out('$this->ad->find(\'all\')');
         $query = array(
-            'conditions'    =>  array('mail' =>  'hotta@sun.ac.jp'),
+            'conditions'    =>  array('mail' =>  '*@example.com'),
             'fields'        =>  array(
                 'sn', 'displayName', 'GivenName', 'homeDirectory'),
         //  Some fields may not be specified as a filter
@@ -116,7 +116,7 @@ Class   SampleAppShell  extends AppShell    {
     public  function    ad_query() {
         $this->out('$this->ad->query()');
         $query = array(
-            'basedn'        =>  'ou=04Computers,dc=sun,dc=local',
+            'basedn'        =>  'ou=04Computers,dc=example,dc=com',
             'conditions'    =>  array('cn' =>  '41CW3W1'),
             'callbacks'     =>  false);
         $this->out(print_r($this->Yaldap2_Aduser->query('search', $query), true));
